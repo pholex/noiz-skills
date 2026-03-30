@@ -97,6 +97,78 @@ def save_api_key(key: str) -> None:
     os.chmod(str(NOIZ_KEY_FILE), 0o600)
 
 
+# ── Volcengine config ─────────────────────────────────────────────────
+
+VOLCENGINE_CONF_FILE = Path.home() / ".config" / "volcengine" / "tts.json"
+
+
+def load_volcengine_config():
+    # type: () -> dict
+    """Load volcengine TTS config from ~/.config/volcengine/tts.json."""
+    if VOLCENGINE_CONF_FILE.exists():
+        import json
+        return json.loads(VOLCENGINE_CONF_FILE.read_text(encoding="utf-8"))
+    return {}
+
+
+def volcengine_synthesize(text, speaker, output_path, fmt="mp3", sample_rate=24000):
+    # type: (str, str, str, str, int) -> None
+    """Call Volcengine TTS HTTP Chunked API and save audio to output_path."""
+    import json
+    import requests
+
+    conf = load_volcengine_config()
+    app_id = conf.get("app_id") or os.environ.get("VOLCENGINE_APP_ID", "")
+    access_key = conf.get("access_key") or os.environ.get("VOLCENGINE_ACCESS_KEY", "")
+    resource_id = conf.get("resource_id", "seed-tts-1.0")
+
+    if not app_id or not access_key:
+        raise SystemExit(
+            "Error: Volcengine credentials not configured.\n"
+            "Create ~/.config/volcengine/tts.json with:\n"
+            '  {"app_id":"YOUR_APP_ID","access_key":"YOUR_KEY","resource_id":"seed-tts-1.0"}\n'
+            "Or set VOLCENGINE_APP_ID and VOLCENGINE_ACCESS_KEY env vars."
+        )
+
+    url = "https://openspeech.bytedance.com/api/v3/tts/unidirectional"
+    headers = {
+        "X-Api-App-Id": app_id,
+        "X-Api-Access-Key": access_key,
+        "X-Api-Resource-Id": resource_id,
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "user": {"uid": "tts-skill"},
+        "req_params": {
+            "text": text,
+            "speaker": speaker,
+            "audio_params": {"format": fmt, "sample_rate": sample_rate},
+        },
+    }
+
+    session = requests.Session()
+    resp = session.post(url, headers=headers, json=payload, stream=True, timeout=120)
+    resp.raise_for_status()
+
+    audio = b""
+    for line in resp.iter_lines():
+        if not line:
+            continue
+        obj = json.loads(line)
+        if obj.get("data"):
+            audio += base64.b64decode(obj["data"])
+        code = obj.get("code", 0)
+        if code == 20000000:
+            break
+        if code and code != 0:
+            raise SystemExit("Volcengine TTS error: {}".format(obj.get("message", code)))
+
+    if not audio:
+        raise SystemExit("Volcengine TTS returned no audio data.")
+
+    Path(output_path).write_bytes(audio)
+
+
 # ── Backend detection ─────────────────────────────────────────────────
 
 
@@ -210,6 +282,14 @@ def cmd_speak(args: argparse.Namespace) -> int:
             subprocess.check_call(cmd)
         finally:
             unlink_silent(tmp_input)
+
+    # ── volcengine ───────────────────────────────────────────────────
+    elif backend == "volcengine":
+        text = args.text
+        if not text and args.text_file:
+            text = Path(args.text_file).read_text(encoding="utf-8").strip()
+        speaker = args.voice or "zh_female_tianmeitaozi_uranus_bigtts"
+        volcengine_synthesize(text, speaker, output, fmt=fmt)
 
     # ── noiz-guest ───────────────────────────────────────────────────
     elif backend == "noiz-guest":
@@ -496,7 +576,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sp.add_argument(
         "--backend",
-        choices=["kokoro", "noiz", "noiz-guest"],
+        choices=["kokoro", "noiz", "noiz-guest", "volcengine"],
         help="Force a specific backend (auto-detected by default)",
     )
     sp.add_argument(
