@@ -107,8 +107,34 @@ python3 skills/tts/scripts/tts.py render --srt input.srt --voice-map vm.json --b
 | Voice cloning from reference audio | Noiz |
 | Emotion control (`emo` param) | Noiz |
 | Exact server-side duration per segment | Noiz |
+| Chinese TTS via Bytedance Seed-TTS | Volcengine |
 
 > When the user needs emotion control + voice cloning + precise duration together, Noiz is the only backend that supports all three.
+
+## Volcengine Backend
+
+Uses Bytedance's Seed-TTS API for Chinese speech synthesis. Requires a separate credential.
+
+### Configuration
+
+Create `~/.config/volcengine/tts.json`:
+
+```json
+{
+  "app_id": "YOUR_APP_ID",
+  "access_key": "YOUR_ACCESS_KEY",
+  "resource_id": "seed-tts-1.0"
+}
+```
+
+Or set environment variables `VOLCENGINE_APP_ID` and `VOLCENGINE_ACCESS_KEY`.
+
+### Usage
+
+```bash
+python3 skills/tts/scripts/tts.py -t "你好世界" --backend volcengine -o hello.wav
+python3 skills/tts/scripts/tts.py -t "你好" --backend volcengine --voice zh_female_tianmeitaozi_uranus_bigtts -o out.mp3
+```
 
 ## Guest Mode (no API key)
 
