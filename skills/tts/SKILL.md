@@ -123,7 +123,7 @@ Create `~/.config/volcengine/tts.json`:
 {
   "app_id": "YOUR_APP_ID",
   "access_key": "YOUR_ACCESS_KEY",
-  "resource_id": "seed-tts-1.0"
+  "resource_id": "seed-tts-2.0"
 }
 ```
 

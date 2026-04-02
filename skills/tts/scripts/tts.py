@@ -120,7 +120,7 @@ def volcengine_synthesize(text, speaker, output_path, fmt="mp3", sample_rate=240
     conf = load_volcengine_config()
     app_id = conf.get("app_id") or os.environ.get("VOLCENGINE_APP_ID", "")
     access_key = conf.get("access_key") or os.environ.get("VOLCENGINE_ACCESS_KEY", "")
-    resource_id = conf.get("resource_id", "seed-tts-1.0")
+    resource_id = conf.get("resource_id", "seed-tts-2.0")
 
     if not app_id or not access_key:
         raise SystemExit(
