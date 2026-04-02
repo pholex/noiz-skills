@@ -20,3 +20,5 @@ skills-lock.json
 .noiz_api_key
 
 __pycache__/
+
+reference/
